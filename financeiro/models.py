@@ -9,23 +9,13 @@ CENTAVOS = Decimal('0.01')
 
 
 def para_decimal(valor):
-    """
-    Converte valor para Decimal de forma segura.
-
-    O `str()` no meio não é decorativo: `Decimal(5.35)` a partir de um float
-    produz 5.3499999999999996447286321199499070644378662109375, porque floats
-    binários não representam decimais exatamente. `Decimal('5.35')` é exato.
-    Em código financeiro essa diferença vira centavo errado no extrato.
-    """
     if isinstance(valor, Decimal):
         return valor
+    # O str() é necessário: Decimal(5.35) a partir de um float dá 5.34999...
     return Decimal(str(valor))
 
 
 class Carteira(models.Model):
-    """
-    Model responsável por salvar os dados da carteira de um usuário
-    """
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     saldo = models.DecimalField(
         max_digits=12,
@@ -55,16 +45,7 @@ class Carteira(models.Model):
         self.save()
 
     def deposito_em_dolar(self, valor_em_dolar):
-        """
-        Converte um valor em dólar para reais pela cotação atual e deposita.
-
-        Retorna o valor em reais efetivamente creditado.
-
-        A validação acontece ANTES da chamada à API de propósito: não faz
-        sentido gastar uma requisição de rede para descobrir que o valor
-        era negativo. Isso também torna o teste do caso inválido independente
-        de qualquer mock.
-        """
+        """Converte pela cotação atual, credita e retorna o valor em reais."""
         valor_em_dolar = para_decimal(valor_em_dolar)
         if valor_em_dolar <= 0:
             raise ValueError("Digite um valor positivo para realizar o depósito")

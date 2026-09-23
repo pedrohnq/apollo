@@ -44,14 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
+    'rest_framework',
     'financeiro',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Serve os arquivos de STATIC_ROOT. Necessário porque o container roda gunicorn,
-    # que não serve estáticos sozinho (só o runserver faz isso, via staticfiles).
-    # Deve vir logo após o SecurityMiddleware e antes de todos os outros.
+    # Serve STATIC_ROOT sob gunicorn; precisa vir logo após o SecurityMiddleware.
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

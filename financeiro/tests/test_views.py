@@ -1,30 +1,27 @@
 """
 Testes de VIEW — o contrato HTTP.
 
-A view não é testada chamando a função Python diretamente, e sim através do
-`self.client`, que percorre middlewares, roteamento de URL e serialização.
-É isso que torna o teste capaz de pegar uma rota mal registrada ou um
-middleware que interfere na resposta.
+A view é exercitada pelo client, não chamando o método diretamente: assim o
+teste percorre roteamento, autenticação, parsing e serialização.
 
-O que se verifica aqui é o CONTRATO: status code e corpo da resposta. A
-aritmética da conversão já foi coberta em test_models.py — repeti-la aqui
-seria duplicação que dobra o custo de manutenção sem aumentar a cobertura real.
+Verifica-se aqui o contrato (status e corpo). A aritmética da conversão já
+está coberta em test_models.py.
 """
 
-import json
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
 from django.urls import reverse
 from model_bakery import baker
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from financeiro.models import Carteira
 from financeiro.services import CotacaoIndisponivel
 
 
-class DepositarEmDolarViewTest(TestCase):
+class DepositarEmDolarViewTest(APITestCase):
 
     def setUp(self):
         self.url = reverse('financeiro:deposito-dolar')
@@ -32,12 +29,10 @@ class DepositarEmDolarViewTest(TestCase):
         self.carteira = baker.make(
             Carteira, usuario=self.usuario, saldo=Decimal('0.00')
         )
-        self.client.force_login(self.usuario)
+        self.client.force_authenticate(user=self.usuario)
 
     def post(self, corpo):
-        return self.client.post(
-            self.url, data=json.dumps(corpo), content_type='application/json'
-        )
+        return self.client.post(self.url, data=corpo, format='json')
 
     @patch('financeiro.models.buscar_cotacao_dolar')
     def test_deposito_valido_retorna_201_com_saldo(self, cotacao_mock):
@@ -45,9 +40,9 @@ class DepositarEmDolarViewTest(TestCase):
 
         resposta = self.post({'valor_em_dolar': '10.00'})
 
-        self.assertEqual(resposta.status_code, 201)
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
         self.assertEqual(
-            resposta.json(),
+            resposta.data,
             {'valor_creditado': '50.00', 'saldo_atual': '50.00'},
         )
 
@@ -60,16 +55,20 @@ class DepositarEmDolarViewTest(TestCase):
         self.carteira.refresh_from_db()
         self.assertEqual(self.carteira.saldo, Decimal('50.00'))
 
-    def test_usuario_anonimo_recebe_401(self):
-        self.client.logout()
+    def test_usuario_anonimo_e_barrado(self):
+        """
+        403 e não 401: com SessionAuthentication não há cabeçalho de desafio
+        a devolver, então o DRF usa 403. Com TokenAuthentication seria 401.
+        """
+        self.client.force_authenticate(user=None)
 
         resposta = self.post({'valor_em_dolar': '10.00'})
 
-        self.assertEqual(resposta.status_code, 401)
+        self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch('financeiro.models.buscar_cotacao_dolar')
     def test_usuario_anonimo_nao_chama_a_api(self, cotacao_mock):
-        self.client.logout()
+        self.client.force_authenticate(user=None)
 
         self.post({'valor_em_dolar': '10.00'})
 
@@ -80,58 +79,74 @@ class DepositarEmDolarViewTest(TestCase):
             self.url, data='isto nao e json', content_type='application/json'
         )
 
-        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_corpo_json_que_nao_e_objeto_retorna_400(self):
+        resposta = self.client.post(self.url, data=[1, 2], format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_campo_ausente_retorna_400(self):
         resposta = self.post({'outro_campo': '10.00'})
 
-        self.assertEqual(resposta.status_code, 400)
-        self.assertIn('valor_em_dolar', resposta.json()['erro'])
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('valor_em_dolar', resposta.data)
 
     @patch('financeiro.models.buscar_cotacao_dolar')
-    def test_valor_negativo_retorna_400(self, cotacao_mock):
-        cotacao_mock.return_value = Decimal('5.00')
-
+    def test_valor_negativo_retorna_400_sem_chamar_a_api(self, cotacao_mock):
         resposta = self.post({'valor_em_dolar': '-10.00'})
 
-        self.assertEqual(resposta.status_code, 400)
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('valor_em_dolar', resposta.data)
+        cotacao_mock.assert_not_called()
+
+    @patch('financeiro.models.buscar_cotacao_dolar')
+    def test_valor_zero_retorna_400(self, cotacao_mock):
+        resposta = self.post({'valor_em_dolar': '0'})
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        cotacao_mock.assert_not_called()
+
+    @patch('financeiro.models.buscar_cotacao_dolar')
+    def test_valor_nao_numerico_retorna_400(self, cotacao_mock):
+        resposta = self.post({'valor_em_dolar': 'dez dolares'})
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        cotacao_mock.assert_not_called()
 
     def test_usuario_sem_carteira_retorna_404(self):
-        outro = baker.make(User)
-        self.client.force_login(outro)
+        self.client.force_authenticate(user=baker.make(User))
 
         resposta = self.post({'valor_em_dolar': '10.00'})
 
-        self.assertEqual(resposta.status_code, 404)
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
 
     @patch('financeiro.models.buscar_cotacao_dolar')
     def test_api_de_cotacao_fora_do_ar_retorna_503(self, cotacao_mock):
-        """
-        503 e não 500: a falha é de dependência externa, é temporária, e o
-        cliente pode tentar de novo. Um 500 sinalizaria bug nosso.
-        """
+        """503 e não 500: a falha é de dependência externa, e é temporária."""
         cotacao_mock.side_effect = CotacaoIndisponivel('API fora do ar')
 
         resposta = self.post({'valor_em_dolar': '10.00'})
 
-        self.assertEqual(resposta.status_code, 503)
+        self.assertEqual(
+            resposta.status_code, status.HTTP_503_SERVICE_UNAVAILABLE
+        )
 
     def test_metodo_get_nao_permitido(self):
         resposta = self.client.get(self.url)
 
-        self.assertEqual(resposta.status_code, 405)
+        self.assertEqual(
+            resposta.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
-    def test_metodo_invalido_para_anonimo_retorna_401_e_nao_405(self):
+    def test_metodo_invalido_para_anonimo_e_barrado_antes_do_405(self):
         """
-        Documenta a ordem de checagem introduzida pela class-based view.
-
-        A autenticação mora no `dispatch`, que roda ANTES do roteamento por
-        verbo HTTP. Logo, um GET anônimo recebe 401, não 405. Além de ser a
-        ordem correta, evita revelar a clientes não autenticados quais métodos
-        o endpoint aceita.
+        O DRF checa permissão em `initial()`, antes de resolver o handler do
+        verbo. Um GET anônimo recebe 403, e não 405, o que evita revelar quais
+        métodos o endpoint aceita.
         """
-        self.client.logout()
+        self.client.force_authenticate(user=None)
 
         resposta = self.client.get(self.url)
 
-        self.assertEqual(resposta.status_code, 401)
+        self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
