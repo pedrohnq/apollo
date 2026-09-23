@@ -1,0 +1,32 @@
+services:
+  # --- Serviço de banco de dados ---
+  db:
+    image: postgres:16              # usa imagem pronta do Docker Hub, não precisa de Dockerfile próprio
+    environment:                    # variáveis de ambiente injetadas no container
+      POSTGRES_DB: meuprojeto
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # persiste os dados do banco fora do container
+    healthcheck:                    # define como o Docker verifica se o serviço está "de fato pronto"
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s                  # verifica a cada 5s
+      timeout: 5s                   # espera até 5s por resposta
+      retries: 5                    # tenta 5 vezes antes de marcar como "unhealthy"
+
+  # --- Serviço da aplicação Django ---
+  web:
+    build: .                        # constrói a imagem a partir do Dockerfile na pasta atual
+    volumes:
+      - .:/app                      # monta o código local dentro do container (hot-reload em dev)
+    ports:
+      - "8000:8000"                 # HOST:CONTAINER — mapeia a porta 8000 da máquina para a 8000 do container
+    depends_on:
+      db:
+        condition: service_healthy  # só inicia o "web" depois que o healthcheck do "db" passar
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/meuprojeto
+      # Note: usamos "db" como host, não um IP — o Compose resolve isso via DNS interno
+
+volumes:
+  pgdata:                           # declaração do volume nomeado usado acima

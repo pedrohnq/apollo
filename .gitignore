@@ -1,0 +1,46 @@
+# Ambiente virtual — cada dev recria o seu a partir do requirements.txt
+venv/
+.venv/
+env/
+
+# Bytecode e artefatos de build do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Segredos e configuração local.
+# ATENÇÃO: o SECRET_KEY ainda está fixo no settings.py — ver observação abaixo.
+.env
+.env.*
+!.env.example
+
+# Banco de dados local
+*.sqlite3
+*.sqlite3-journal
+
+# Saída do collectstatic: regenerada a cada deploy, nunca versionada
+staticfiles/
+
+# Uploads de usuário em desenvolvimento
+media/
+
+# Logs
+*.log
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Editores e sistema operacional
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db

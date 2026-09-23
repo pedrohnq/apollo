@@ -1,0 +1,39 @@
+# Ambiente virtual do host: contém binários Python 3.10 do Ubuntu, incompatíveis
+# com o Python 3.12 da imagem. Além de inútil, é o maior item do contexto de build.
+venv/
+.venv/
+
+# Bytecode compilado — gerado de novo dentro do container
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Banco local do SQLite (se algum dia existir) — nunca deve ir para a imagem
+*.sqlite3
+
+# Saída do collectstatic: gerada pelo entrypoint a cada start
+staticfiles/
+
+# Segredos: o compose injeta as variáveis; a imagem não deve carregá-los
+.env
+.env.*
+
+# Metadados de versionamento
+.git/
+.gitignore
+
+# O próprio Docker
+.dockerignore
+docker-compose.yml
+Dockerfile
+
+# Ruído de editor e sistema operacional
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
