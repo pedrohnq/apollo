@@ -70,7 +70,9 @@ jobs:
 
       - name: Relatório de cobertura
         # Falha abaixo do fail_under definido no .coveragerc (90%).
-        run: coverage report
+        # O -m é explícito aqui: quando a build quebra por cobertura, o log
+        # precisa mostrar QUAIS linhas ficaram descobertas.
+        run: coverage report -m
 
       - name: Gerar relatório HTML
         # "always" para que o relatório exista mesmo quando a cobertura falha —

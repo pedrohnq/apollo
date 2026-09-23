@@ -16,7 +16,9 @@ omit =
     manage.py
 
 [report]
-show_missing = True
+# Desligado por padrão para que `coverage report` seja o resumo rápido.
+# Use `coverage report -m` quando quiser as linhas descobertas.
+show_missing = False
 skip_covered = False
 # A build falha abaixo deste percentual. O número é um piso contra regressão,
 # não uma meta: 100% de cobertura não significa ausência de bugs, apenas que
