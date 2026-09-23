@@ -1,0 +1,32 @@
+[run]
+# Medir apenas o nosso código. Sem isso, o relatório se enche de linhas do
+# Django e das dependências, e o percentual perde qualquer significado.
+source = financeiro, apollo
+branch = True
+
+omit =
+    # Migrações são geradas pelo Django; testá-las mede o framework, não o projeto.
+    */migrations/*
+    # Os próprios testes sempre têm ~100% de cobertura — incluí-los infla o número.
+    */tests/*
+    */__pycache__/*
+    # Pontos de entrada WSGI/ASGI: exercitados pelo servidor, não por testes.
+    */wsgi.py
+    */asgi.py
+    manage.py
+
+[report]
+show_missing = True
+skip_covered = False
+# A build falha abaixo deste percentual. O número é um piso contra regressão,
+# não uma meta: 100% de cobertura não significa ausência de bugs, apenas que
+# toda linha foi executada ao menos uma vez.
+fail_under = 90
+
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+
+[html]
+directory = htmlcov

@@ -33,7 +33,13 @@ Dockerfile
 *.swp
 .DS_Store
 
-# Testes e cobertura
+# Testes e cobertura — nada disso pertence à imagem de produção
 .pytest_cache/
 .coverage
 htmlcov/
+.coveragerc
+requirements-dev.txt
+financeiro/tests/
+
+# Configuração de CI
+.github/

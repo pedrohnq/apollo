@@ -3,3 +3,4 @@ psycopg[binary]==3.2.3
 dj-database-url==2.3.0
 gunicorn==23.0.0
 whitenoise==6.8.2
+requests==2.32.3

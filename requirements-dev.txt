@@ -1,0 +1,7 @@
+# Dependências de desenvolvimento e teste.
+# Separadas do requirements.txt para que a imagem de produção não as carregue:
+# menos pacotes na imagem significa menos superfície de ataque e build mais rápido.
+-r requirements.txt
+
+coverage==7.6.9
+model-bakery==1.20.0
